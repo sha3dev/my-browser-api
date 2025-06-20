@@ -1,0 +1,41 @@
+{
+  "name": "hype-bot",
+  "version": "1.0.0",
+  "description": "A bot built with Node.js, Puppeteer, and Charm.sh",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "tsx --test tests/**/*.test.ts",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "keywords": [
+    "bot",
+    "puppeteer",
+    "charm"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "charsm": "^0.2.0",
+    "puppeteer": "^24.10.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.15.32",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "prettier-eslint": "^16.3.0",
+    "tsx": "^4.19.2",
+    "typescript": "^4.9.5",
+    "typescript-eslint": "^8.18.2"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
