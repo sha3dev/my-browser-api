@@ -34,14 +34,31 @@ describe("X Platform", () => {
   describe("reply", () => {
     it("should reply to a tweet", async () => {
       await x.reply({
-        id: "1935978689814278429",
+        uri: "/sha3dev/status/1935978689814278429",
         text: "Test from Hype Bot",
       });
       assert(true);
     });
 
     it("should handle non-existent tweet", async () => {
-      await assert.rejects(() => x.reply({ id: "9999999999999999999n", text: "Test" }), { name: "Error" });
+      await assert.rejects(() => x.reply({ uri: "/sha3dev/status/9999999999999999999n", text: "Test" }), { name: "Error" });
+    });
+  });
+
+  describe("getPost", () => {
+    it("should return post with replies", async () => {
+      const post = await x.getPost({
+        uri: "/sha3dev/status/1935978689814278429",
+        repliesLimit: 10,
+      });
+
+      assert.strictEqual(typeof post.id, "string");
+      assert.strictEqual(typeof post.textContent, "string");
+      assert(Array.isArray(post.replies));
+    });
+
+    it("should throw for non-existent post", async () => {
+      await assert.rejects(() => x.getPost({ uri: "/sha3dev/status/9999999999999999999" }), { name: "Error" });
     });
   });
 });
