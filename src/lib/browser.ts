@@ -127,20 +127,21 @@ export default class {
         headless: false,
         defaultViewport: DEFAULT_VIEWPORT,
         userDataDir: this.getUserDataDir(),
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        /* args: [
+          "--no-sandbox", // Disables the sandbox for unrestricted access (needed for some environments like Docker)
+          "--disable-setuid-sandbox", // Prevents switching to a different user ID after launch (security feature)
+          "--disable-dev-shm-usage", // Uses /tmp instead of /dev/shm which is limited in some environments
+          "--disable-gpu", // Disables GPU hardware acceleration to avoid issues in headless environments
+          "--no-zygote", // Disables the zygote process that creates new renderer processes
+          "--single-process", // Runs Chrome in single process mode for better stability in some environments
+        ], */
       };
+
       if (executablePath) {
         launchOptions.executablePath = executablePath;
       }
+
       this.browser = await puppeteer.launch(launchOptions);
-      // Clean up on process exit
-      if (process.env.NODE_ENV === "test") {
-        process.on("exit", () => {
-          if (this.browser) {
-            this.browser.close().catch(console.error);
-          }
-        });
-      }
     }
     return this.browser;
   }
