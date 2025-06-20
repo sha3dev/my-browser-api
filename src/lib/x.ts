@@ -123,13 +123,14 @@ export default class X {
     if (!replyField) {
       throw new Error(`Reply field with selector ${contentEditableSelector} not found`);
     }
-    const sendButtonSelector = `button[aria-disabled="false"]`;
-    const sendButton = await page.$(sendButtonSelector);
+
+    await replyField.click();
+    await page.keyboard.type(text);
+    const sendButtonSelector = `button[data-testid="tweetButtonInline"]:not([aria-disabled="true"])`;
+    const sendButton = await page.waitForSelector(sendButtonSelector);
     if (!sendButton) {
       throw new Error(`Send button with selector ${sendButtonSelector} not found`);
     }
-    await replyField.click();
-    await page.keyboard.type(text);
     await sendButton.click();
     await page.waitForNetworkIdle();
     await page.close();

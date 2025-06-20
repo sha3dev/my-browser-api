@@ -29,6 +29,8 @@ export type OpenOptions = {
 
 const BROWSER_TIMEOUT = 60 * 1000;
 
+const DEFAULT_VIEWPORT = { width: 1280, height: 800 };
+
 /**
  * class
  */
@@ -123,14 +125,22 @@ export default class {
       const executablePath = this.locateBrowser();
       const launchOptions: any = {
         headless: false,
-        defaultViewport: ,
+        defaultViewport: DEFAULT_VIEWPORT,
         userDataDir: this.getUserDataDir(),
-        // ignoreDefaultArgs: ["--enable-automation"],
+        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
       };
       if (executablePath) {
         launchOptions.executablePath = executablePath;
       }
       this.browser = await puppeteer.launch(launchOptions);
+      // Clean up on process exit
+      if (process.env.NODE_ENV === "test") {
+        process.on("exit", () => {
+          if (this.browser) {
+            this.browser.close().catch(console.error);
+          }
+        });
+      }
     }
     return this.browser;
   }
