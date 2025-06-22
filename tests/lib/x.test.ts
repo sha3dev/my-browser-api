@@ -47,7 +47,7 @@ describe("X Platform", () => {
 
   describe("getPost", () => {
     it("should return post with replies", async () => {
-      const post = await x.getPost({
+      const post = await x.getTweet({
         uri: "/sha3dev/status/1935978689814278429",
         repliesLimit: 10,
       });
@@ -58,7 +58,7 @@ describe("X Platform", () => {
     });
 
     it("should throw for non-existent post", async () => {
-      await assert.rejects(() => x.getPost({ uri: "/sha3dev/status/9999999999999999999" }), { name: "Error" });
+      await assert.rejects(() => x.getTweet({ uri: "/sha3dev/status/9999999999999999999" }), { name: "Error" });
     });
   });
 });

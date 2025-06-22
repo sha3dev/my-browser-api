@@ -62,7 +62,7 @@ export default class X {
    * private: methods
    */
 
-  private async toPostData(article: ElementHandle<HTMLElement>) {
+  private async toTweetData(article: ElementHandle<HTMLElement>) {
     const linkElement = await article.$("[href*='/status/']");
     const textContent = await article.evaluate((el) => el.textContent);
     const uri = linkElement ? await linkElement.evaluate((el) => el.getAttribute("href")) : undefined;
@@ -73,22 +73,22 @@ export default class X {
     return null;
   }
 
-  private async getPostsFromPage(page: Page, limit?: number) {
+  private async getTweetsFromPage(page: Page, limit?: number) {
     let stop = false;
-    let posts: PostData[] = [];
+    let tweets: PostData[] = [];
     do {
       const newArticlesHandles = await page.$$("article");
-      let newResults = (await Promise.all(Array.from(newArticlesHandles).map(this.toPostData))) as PostData[];
-      newResults = newResults.filter((i) => i && !posts.find((p) => p.id === i.id));
-      posts.push(...newResults);
-      if (!limit || !newResults.length || limit < posts.length) {
+      let newResults = (await Promise.all(Array.from(newArticlesHandles).map(this.toTweetData))) as PostData[];
+      newResults = newResults.filter((i) => i && !tweets.find((p) => p.id === i.id));
+      tweets.push(...newResults);
+      if (!limit || !newResults.length || limit < tweets.length) {
         stop = true;
       } else {
         await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
         await page.waitForNetworkIdle();
       }
     } while (!stop);
-    const result = limit ? posts.slice(0, limit) : posts;
+    const result = limit ? tweets.slice(0, limit) : tweets;
     return result;
   }
 
@@ -119,19 +119,19 @@ export default class X {
     if (!page) {
       throw new Error(`error opening ${url}`);
     }
-    const posts = await this.getPostsFromPage(page, limit);
+    const tweets = await this.getTweetsFromPage(page, limit);
     await page.close();
-    return posts;
+    return tweets;
   }
 
-  public async getPost(options: GetPostOptions) {
+  public async getTweet(options: GetPostOptions) {
     const { uri, repliesLimit } = options;
     const url = new URL(uri, "https://x.com");
     const page = await this.browser.open({ url: url.toString() });
     if (!page) {
       throw new Error(`error opening ${url}`);
     }
-    const posts = await this.getPostsFromPage(page, repliesLimit);
+    const posts = await this.getTweetsFromPage(page, repliesLimit);
     await page.close();
     const post = posts.find((p) => p.uri === uri);
     if (!post) {
