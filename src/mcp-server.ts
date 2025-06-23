@@ -202,8 +202,8 @@ function initServer(server: McpServer) {
  * export
  */
 
-export default function getServer() {
+export function createServer() {
   const server = new McpServer({ name: "My Browser API", version: "1.0.0" });
   initServer(server);
-  return server;
+  return { server, cleanup: () => server.close() };
 }

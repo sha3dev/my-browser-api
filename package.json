@@ -5,13 +5,19 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "dev": "tsx watch src/server.ts",
     "server": "tsx src/server.ts",
     "inspector": "npx @modelcontextprotocol/inspector tsx src/server.ts",
-    "dev": "nodemon src/index.js",
     "test": "NODE_OPTIONS='--import tsx' node --test tests/**/*.test.ts",
-    "lint": "eslint .",
-    "format": "prettier --write ."
+    "test:watch": "NODE_OPTIONS='--import tsx' node --test --watch tests/**/*.test.ts",
+    "lint": "eslint . --ext .ts,.js",
+    "lint:fix": "eslint . --ext .ts,.js --fix",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist node_modules package-lock.json && npm install",
+    "prepare": "npm run build"
   },
   "keywords": [
     "bot",
@@ -23,6 +29,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.0",
     "charsm": "^0.2.0",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
     "puppeteer": "^24.10.2"
   },
@@ -30,6 +37,7 @@
     "@anthropic-ai/claude-code": "^1.0.31",
     "@eslint/js": "^9.17.0",
     "@modelcontextprotocol/inspector": "^0.14.3",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/node": "^22.15.32",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
