@@ -6,7 +6,7 @@
   "editor.formatOnSave": true,
   "editor.formatOnSaveMode": "file",
   "files.autoSave": "off",
-  "typescript.updateImportsOnFileMove.enabled": "prompt",
+  "typescript.updateImportsOnFileMove.enabled": "always",
   "vs-code-prettier-eslint.prettierLast": false,
   "git.repositoryScanMaxDepth": 2,
   "search.exclude": {

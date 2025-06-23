@@ -1,11 +1,13 @@
 {
-  "name": "hype-bot",
+  "name": "my-browser-api",
   "version": "1.0.0",
-  "description": "A bot built with Node.js, Puppeteer, and Charm.sh",
+  "description": "A browser API built with Node.js and Puppeteer",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
+    "server": "tsx src/server.ts",
+    "inspector": "npx @modelcontextprotocol/inspector tsx src/server.ts",
     "dev": "nodemon src/index.js",
     "test": "NODE_OPTIONS='--import tsx' node --test tests/**/*.test.ts",
     "lint": "eslint .",
@@ -21,10 +23,14 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.0",
     "charsm": "^0.2.0",
+    "express": "^5.1.0",
     "puppeteer": "^24.10.2"
   },
   "devDependencies": {
+    "@anthropic-ai/claude-code": "^1.0.31",
     "@eslint/js": "^9.17.0",
+    "@modelcontextprotocol/inspector": "^0.14.3",
+    "@types/express": "^5.0.3",
     "@types/node": "^22.15.32",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
