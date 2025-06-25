@@ -41,6 +41,8 @@ export default class {
    */
 
   private browser: Browser | null = null;
+  private lastBrowserCheck: number = 0;
+  private browserCheckInterval: number = 30 * 1000; // Check browser health every 30 seconds
 
   /**
    * private: methods
@@ -87,7 +89,7 @@ export default class {
       return this.options.userDataDir;
     }
     const tempDir = os.tmpdir();
-    const userDataDir = path.join(tempDir, "hype-bot");
+    const userDataDir = path.join(tempDir, "my-browser-api");
     if (!fs.existsSync(userDataDir)) {
       fs.mkdirSync(userDataDir, { recursive: true });
     }
@@ -120,28 +122,71 @@ export default class {
     return executablePath;
   }
 
+  private async isBrowserAlive(): Promise<boolean> {
+    if (!this.browser) {
+      return false;
+    }
+    try {
+      // Try to get browser version - this will fail if browser is disconnected
+      await this.browser.version();
+      return true;
+    } catch (error: any) {
+      console.warn("Browser instance appears to be dead:", error.message);
+      return false;
+    }
+  }
+
+  private async cleanupDeadBrowser() {
+    if (this.browser) {
+      try {
+        await this.browser.close();
+      } catch (error: any) {
+        console.warn("Error while closing dead browser:", error.message);
+      } finally {
+        this.browser = null;
+      }
+    }
+  }
+
   private async getBrowser() {
+    const now = Date.now();
+    if (this.browser && now - this.lastBrowserCheck > this.browserCheckInterval) {
+      this.lastBrowserCheck = now;
+      const isAlive = await this.isBrowserAlive();
+
+      if (!isAlive) {
+        console.log("Browser instance is dead, recreating...");
+        await this.cleanupDeadBrowser();
+      }
+    }
     if (!this.browser) {
       const executablePath = this.locateBrowser();
+      const userDataDir = this.getUserDataDir();
       const launchOptions: any = {
         headless: false,
         defaultViewport: DEFAULT_VIEWPORT,
-        userDataDir: this.getUserDataDir(),
-        /* args: [
-          "--no-sandbox", // Disables the sandbox for unrestricted access (needed for some environments like Docker)
-          "--disable-setuid-sandbox", // Prevents switching to a different user ID after launch (security feature)
-          "--disable-dev-shm-usage", // Uses /tmp instead of /dev/shm which is limited in some environments
-          "--disable-gpu", // Disables GPU hardware acceleration to avoid issues in headless environments
-          "--no-zygote", // Disables the zygote process that creates new renderer processes
-          "--single-process", // Runs Chrome in single process mode for better stability in some environments
-        ], */
+        userDataDir,
+        args: [
+          "--no-first-run",
+          "--no-default-browser-check",
+          "--no-sandbox", // Puede causar problemas de seguridad pero es necesario en contenedores
+          "--disable-setuid-sandbox", // Podría causar problemas en ciertos entornos seguros
+          "--disable-dev-shm-usage", // Necesario en entornos con memoria compartida limitada
+          "--disable-gpu", // Puede fallar en sistemas sin GPU o con controladores incompatibles
+          "--no-zygote", // Puede causar problemas con el aislamiento de procesos
+        ],
       };
-
       if (executablePath) {
         launchOptions.executablePath = executablePath;
       }
-
-      this.browser = await puppeteer.launch(launchOptions);
+      try {
+        this.browser = await puppeteer.launch(launchOptions);
+        this.lastBrowserCheck = now;
+        console.log("New browser instance created successfully");
+      } catch (error: any) {
+        console.error("Failed to launch browser:", error.message);
+        throw error;
+      }
     }
     return this.browser;
   }
@@ -166,5 +211,10 @@ export default class {
     }
     await page.waitForNetworkIdle({ timeout: BROWSER_TIMEOUT });
     return page;
+  }
+
+  public async ensureBrowserAlive() {
+    this.lastBrowserCheck = 0; // Reset the check timer to force a check
+    await this.getBrowser();
   }
 }

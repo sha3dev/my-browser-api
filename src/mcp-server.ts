@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import Browser from "./lib/browser.js";
 import X from "./lib/x.js";
+import { profile } from "node:console";
 
 /**
  * init
@@ -157,13 +158,13 @@ function initServer(server: McpServer) {
     {
       title: "Get Post",
       description: "Get a tweet from X",
-      inputSchema: { uri: z.string() },
+      inputSchema: { uri: z.string(), repliesLimit: z.number().optional() },
       annotations: {
         openWorldHint: true,
       },
     },
-    async ({ uri }) => {
-      const tweet = await x.getTweet({ uri });
+    async ({ uri, repliesLimit }) => {
+      const tweet = await x.getTweet({ uri, repliesLimit });
       return {
         content: [
           {

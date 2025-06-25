@@ -3,6 +3,7 @@
  */
 
 import { ElementHandle, Page } from "puppeteer";
+import { setTimeout } from "node:timers/promises";
 
 /**
  * imports (internals)
@@ -46,6 +47,8 @@ export type PostDetailData = PostData & {
 /**
  * consts
  */
+
+const WAIT_FOR_SEND_BUTTON_MS = 1000;
 
 /**
  * class
@@ -158,8 +161,9 @@ export default class X {
     }
     await replyField.click();
     await page.keyboard.type(text);
+    await setTimeout(WAIT_FOR_SEND_BUTTON_MS);
     const sendButtonSelector = `button[data-testid="tweetButtonInline"]:not([aria-disabled="true"])`;
-    const sendButton = await page.waitForSelector(sendButtonSelector);
+    const sendButton = await page.$(sendButtonSelector);
     if (!sendButton) {
       throw new Error(`Send button with selector ${sendButtonSelector} not found`);
     }
