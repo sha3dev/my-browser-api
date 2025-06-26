@@ -61,4 +61,13 @@ describe("X Platform", () => {
       await assert.rejects(() => x.getTweet({ uri: "/sha3dev/status/9999999999999999999" }), { name: "Error" });
     });
   });
+
+  describe("postNew", () => {
+    it("should post a new tweet", async () => {
+      await x.postNew({
+        text: "Test tweet from Hype Bot",
+      });
+      assert(true);
+    });
+  });
 });

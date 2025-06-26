@@ -1,4 +1,5 @@
 {
+  "autoAccept": true,
   "mcpServers": {
     "MyBrowser": {
       "command": "tsx",
