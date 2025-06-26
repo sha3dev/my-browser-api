@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "MyBrowser": {
+      "command": "tsx",
+      "args": ["src/server.ts"]
+    }
+  }
+}

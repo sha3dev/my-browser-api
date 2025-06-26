@@ -5,8 +5,6 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "start": "node dist/server.js",
-    "build": "tsc",
     "dev": "tsx watch src/server.ts",
     "server": "tsx src/server.ts",
     "inspector": "npx @modelcontextprotocol/inspector tsx src/server.ts",

@@ -40,6 +40,10 @@ export type GetPostOptions = {
   repliesLimit?: number;
 };
 
+export type PostOptions = {
+  text: string;
+};
+
 export type PostDetailData = PostData & {
   replies: PostData[];
 };
@@ -47,6 +51,8 @@ export type PostDetailData = PostData & {
 /**
  * consts
  */
+
+const BASE_URL = "https://x.com";
 
 const WAIT_FOR_SEND_BUTTON_MS = 1000;
 
@@ -95,6 +101,25 @@ export default class X {
     return result;
   }
 
+  private async postNewTweet(page: Page, text: string) {
+    await page.waitForNetworkIdle();
+    const contentEditableSelector = "[contenteditable]";
+    const postField = await page.$(contentEditableSelector);
+    if (!postField) {
+      throw new Error(`Post field with selector ${contentEditableSelector} not found`);
+    }
+    await postField.click();
+    await page.keyboard.type(text);
+    await setTimeout(WAIT_FOR_SEND_BUTTON_MS);
+    const sendButtonSelector = `button[data-testid="tweetButtonInline"]:not([aria-disabled="true"])`;
+    const sendButton = await page.$(sendButtonSelector);
+    if (!sendButton) {
+      throw new Error(`Send button with selector ${sendButtonSelector} not found`);
+    }
+    await sendButton.click();
+    await page.waitForNetworkIdle();
+  }
+
   /**
    * constructor
    */
@@ -122,53 +147,55 @@ export default class X {
     if (!page) {
       throw new Error(`error opening ${url}`);
     }
-    const tweets = await this.getTweetsFromPage(page, limit);
-    await page.close();
-    return tweets;
+    try {
+      const tweets = await this.getTweetsFromPage(page, limit);
+      return tweets;
+    } finally {
+      await page.close();
+    }
   }
 
   public async getTweet(options: GetPostOptions) {
     const { uri, repliesLimit } = options;
-    const url = new URL(uri, "https://x.com");
+    const url = new URL(uri, BASE_URL);
     const page = await this.browser.open({ url: url.toString() });
     if (!page) {
       throw new Error(`error opening ${url}`);
     }
-    const posts = await this.getTweetsFromPage(page, repliesLimit);
-    await page.close();
-    const post = posts.find((p) => p.uri === uri);
-    if (!post) {
-      throw new Error(`post with URI ${uri} not found`);
+    try {
+      const posts = await this.getTweetsFromPage(page, repliesLimit);
+      const post = posts.find((p) => p.uri === uri);
+      if (!post) {
+        throw new Error(`post with URI ${uri} not found`);
+      }
+      return {
+        ...post,
+        replies: posts.filter((p) => p.uri !== uri),
+      };
+    } finally {
+      await page.close();
     }
-    return {
-      ...post,
-      replies: posts.filter((p) => p.uri !== uri),
-    };
+  }
+
+  public async postNew(options: PostOptions) {
+    const { text } = options;
+    const url = new URL("/home", BASE_URL);
+    const page = await this.browser.open({ url: url.toString() });
+    try {
+      await this.postNewTweet(page, text);
+    } finally {
+      await page.close();
+    }
   }
 
   public async reply(options: ReplyOptions) {
     const { uri, text } = options;
     const url = new URL(uri, "https://x.com");
     const page = await this.browser.open({ url: url.toString() });
-    await page.waitForNetworkIdle();
-    if (!page) {
-      throw new Error(`error opening URI ${uri}`);
+    try {
+      await this.postNewTweet(page, text);
+    } finally {
+      await page.close();
     }
-    const contentEditableSelector = "[contenteditable]";
-    const replyField = await page.$(contentEditableSelector);
-    if (!replyField) {
-      throw new Error(`Reply field with selector ${contentEditableSelector} not found`);
-    }
-    await replyField.click();
-    await page.keyboard.type(text);
-    await setTimeout(WAIT_FOR_SEND_BUTTON_MS);
-    const sendButtonSelector = `button[data-testid="tweetButtonInline"]:not([aria-disabled="true"])`;
-    const sendButton = await page.$(sendButtonSelector);
-    if (!sendButton) {
-      throw new Error(`Send button with selector ${sendButtonSelector} not found`);
-    }
-    await sendButton.click();
-    await page.waitForNetworkIdle();
-    await page.close();
   }
 }

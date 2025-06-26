@@ -93,6 +93,26 @@ function initServer(server: McpServer) {
     }),
   );
 
+  server.registerPrompt(
+    "post-new-on-x",
+    {
+      title: "Post New",
+      description: "Post a new tweet on X",
+      argsSchema: { text: z.string() },
+    },
+    ({ text }) => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `Please post the following tweet on X: ${text}`,
+          },
+        },
+      ],
+    }),
+  );
+
   /**
    * resources
    */
@@ -193,6 +213,29 @@ function initServer(server: McpServer) {
           {
             type: "text",
             text: `Replied to tweet with URI ${uri}`,
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerTool(
+    "post-new-on-x",
+    {
+      title: "Post New",
+      description: "Post a new tweet on X",
+      inputSchema: { text: z.string() },
+      annotations: {
+        openWorldHint: true,
+      },
+    },
+    async ({ text }) => {
+      await x.postNew({ text });
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Posted new tweet: ${text}`,
           },
         ],
       };
