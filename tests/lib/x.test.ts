@@ -64,10 +64,22 @@ describe("X Platform", () => {
 
   describe("postNew", () => {
     it("should post a new tweet", async () => {
-      await x.postNew({
+      await x.post({
         text: "Test tweet from Hype Bot",
       });
       assert(true);
     });
   });
+
+  describe("listMyTweets", () => {
+    it("should return my tweets", async () => {
+      const tweets = await x.listMyTweets();
+      assert(Array.isArray(tweets));
+      assert(tweets.length > 0);
+      assert.strictEqual(typeof tweets[0].textContent, "string");
+      assert.strictEqual(typeof tweets[0].uri, "string");
+      assert.strictEqual(typeof tweets[0].id, "string");
+    });
+  });
+
 });

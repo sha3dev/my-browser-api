@@ -1,0 +1,20 @@
+
+
+
+* extraer mi nombre de usuario, para saber si ya he conytestado o no
+* extraer mis ultimos tweets, para asegurarme que no posteamos algo similar
+* nueva tool "fetch" sin limitaciones
+
+
+* postear en reddir
+* postear en blogger?¿
+* contestar en indie hackers?¿
+* contestar en hacker 
+* buscar palabras claves
+* crear landing page sencilla para capytar emails
+* cada dia te manda un mail con el trabajo hecho, visitas, etc
+* usamos schduled actions
+* le decimos que cree un archivo de memoria para que pueda recordar cosas
+
+
+

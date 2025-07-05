@@ -21,13 +21,14 @@ export type BrowserOptions = {
 
 export type OpenOptions = {
   url: string;
+  overrideWaitNetworkIdleTimeout?: number;
 };
 
 /**
  * consts
  */
 
-const BROWSER_TIMEOUT = 60 * 1000;
+const BROWSER_TIMEOUT = 2 * 1000;
 
 const DEFAULT_VIEWPORT = { width: 1280, height: 800 };
 
@@ -41,8 +42,10 @@ export default class {
    */
 
   private browser: Browser | null = null;
+
   private lastBrowserCheck: number = 0;
-  private browserCheckInterval: number = 30 * 1000; // Check browser health every 30 seconds
+
+  private browserCheckInterval: number = 30 * 1000;
 
   /**
    * private: methods
@@ -153,7 +156,6 @@ export default class {
     if (this.browser && now - this.lastBrowserCheck > this.browserCheckInterval) {
       this.lastBrowserCheck = now;
       const isAlive = await this.isBrowserAlive();
-
       if (!isAlive) {
         console.log("Browser instance is dead, recreating...");
         await this.cleanupDeadBrowser();
@@ -169,11 +171,11 @@ export default class {
         args: [
           "--no-first-run",
           "--no-default-browser-check",
-          "--no-sandbox", // Puede causar problemas de seguridad pero es necesario en contenedores
-          "--disable-setuid-sandbox", // Podría causar problemas en ciertos entornos seguros
-          "--disable-dev-shm-usage", // Necesario en entornos con memoria compartida limitada
-          "--disable-gpu", // Puede fallar en sistemas sin GPU o con controladores incompatibles
-          "--no-zygote", // Puede causar problemas con el aislamiento de procesos
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+          "--no-zygote",
         ],
       };
       if (executablePath) {
@@ -198,23 +200,34 @@ export default class {
   constructor(private options: BrowserOptions) {}
 
   /**
-   * public
+   * public: methods
    */
 
   public async open(options: OpenOptions) {
-    const { url } = options;
+    const { url, overrideWaitNetworkIdleTimeout } = options;
     const browser = await this.getBrowser();
     const page = await browser.newPage();
     const response = await page.goto(url, { timeout: BROWSER_TIMEOUT });
     if (!response?.ok()) {
       throw new Error(`error opening ${url}: ${response?.status()}`);
     }
-    await page.waitForNetworkIdle({ timeout: BROWSER_TIMEOUT });
+    if (overrideWaitNetworkIdleTimeout) {
+      await new Promise((f) => setTimeout(f, overrideWaitNetworkIdleTimeout));
+    } else {
+      await page.waitForNetworkIdle({ timeout: BROWSER_TIMEOUT });
+    }
     return page;
   }
 
   public async ensureBrowserAlive() {
     this.lastBrowserCheck = 0; // Reset the check timer to force a check
     await this.getBrowser();
+  }
+
+  public async close() {
+    if (this.browser) {
+      await this.browser.close();
+      this.browser = null;
+    }
   }
 }

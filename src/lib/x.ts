@@ -27,6 +27,7 @@ export type SearchOptions = {
 export type PostData = {
   uri: string;
   id: string;
+  isFromMe: boolean;
   textContent: string;
 };
 
@@ -71,6 +72,27 @@ export default class X {
    * private: methods
    */
 
+  private async getMyUsername(parentPage?: Page) {
+    const userAvatarPrefix = "UserAvatar-Container-";
+    const url = new URL("/home", BASE_URL);
+    const page = parentPage || (await this.browser.open({ url: url.toString() }));
+    try {
+      const avatarContainer = await page.$(`[data-testid^='${userAvatarPrefix}']`);
+      if (!avatarContainer) {
+        throw new Error(`Avatar container with prefix ${userAvatarPrefix} not found`);
+      }
+      const dataTestId = await avatarContainer.evaluate((el) => el.getAttribute("data-testid"));
+      if (!dataTestId) {
+        throw new Error(`Avatar container with prefix ${userAvatarPrefix} not found`);
+      }
+      return dataTestId.replace(userAvatarPrefix, "");
+    } finally {
+      if (!parentPage) {
+        await page.close();
+      }
+    }
+  }
+
   private async toTweetData(article: ElementHandle<HTMLElement>) {
     const linkElement = await article.$("[href*='/status/']");
     const textContent = await article.evaluate((el) => el.textContent);
@@ -85,11 +107,12 @@ export default class X {
   private async getTweetsFromPage(page: Page, limit?: number) {
     let stop = false;
     let tweets: PostData[] = [];
+    const myUsername = await this.getMyUsername(page);
     do {
       const newArticlesHandles = await page.$$("article");
       let newResults = (await Promise.all(Array.from(newArticlesHandles).map(this.toTweetData))) as PostData[];
       newResults = newResults.filter((i) => i && !tweets.find((p) => p.id === i.id));
-      tweets.push(...newResults);
+      tweets.push(...newResults.map((i) => ({ ...i, isFromMe: i.uri.includes(myUsername) })));
       if (!limit || !newResults.length || limit < tweets.length) {
         stop = true;
       } else {
@@ -101,7 +124,7 @@ export default class X {
     return result;
   }
 
-  private async postNewTweet(page: Page, text: string) {
+  private async postToX(page: Page, text: string) {
     await page.waitForNetworkIdle();
     const contentEditableSelector = "[contenteditable]";
     const postField = await page.$(contentEditableSelector);
@@ -110,6 +133,7 @@ export default class X {
     }
     await postField.click();
     await page.keyboard.type(text);
+    await page.waitForNetworkIdle();
     await setTimeout(WAIT_FOR_SEND_BUTTON_MS);
     const sendButtonSelector = `button[data-testid="tweetButtonInline"]:not([aria-disabled="true"])`;
     const sendButton = await page.$(sendButtonSelector);
@@ -133,20 +157,21 @@ export default class X {
    */
 
   public async isLoggedIn() {
-    const page = await this.browser.open({ url: "https://x.com" });
-    const avatarContainer = await page.$("[data-testid^='UserAvatar-Container-']");
-    await page.close();
-    return !!avatarContainer;
+    const url = new URL("/home", BASE_URL);
+    const page = await this.browser.open({ url: url.toString() });
+    try {
+      const avatarContainer = await page.$("[data-testid^='UserAvatar-Container-']");
+      return !!avatarContainer;
+    } finally {
+      await page.close();
+    }
   }
 
   public async search(options: SearchOptions): Promise<PostData[]> {
     const { query, limit } = options;
     const encodedQuery = encodeURIComponent(query);
-    const url = `https://x.com/search?q=${encodedQuery}`;
+    const url = `${BASE_URL}/search?q=${encodedQuery}`;
     const page = await this.browser.open({ url });
-    if (!page) {
-      throw new Error(`error opening ${url}`);
-    }
     try {
       const tweets = await this.getTweetsFromPage(page, limit);
       return tweets;
@@ -159,9 +184,6 @@ export default class X {
     const { uri, repliesLimit } = options;
     const url = new URL(uri, BASE_URL);
     const page = await this.browser.open({ url: url.toString() });
-    if (!page) {
-      throw new Error(`error opening ${url}`);
-    }
     try {
       const posts = await this.getTweetsFromPage(page, repliesLimit);
       const post = posts.find((p) => p.uri === uri);
@@ -177,12 +199,12 @@ export default class X {
     }
   }
 
-  public async postNew(options: PostOptions) {
+  public async post(options: PostOptions) {
     const { text } = options;
     const url = new URL("/home", BASE_URL);
     const page = await this.browser.open({ url: url.toString() });
     try {
-      await this.postNewTweet(page, text);
+      await this.postToX(page, text);
     } finally {
       await page.close();
     }
@@ -190,10 +212,22 @@ export default class X {
 
   public async reply(options: ReplyOptions) {
     const { uri, text } = options;
-    const url = new URL(uri, "https://x.com");
+    const url = new URL(uri, BASE_URL);
     const page = await this.browser.open({ url: url.toString() });
     try {
-      await this.postNewTweet(page, text);
+      await this.postToX(page, text);
+    } finally {
+      await page.close();
+    }
+  }
+
+  public async listMyTweets() {
+    const myUsername = await this.getMyUsername();
+    const url = new URL(`/${myUsername}`, BASE_URL);
+    const page = await this.browser.open({ url: url.toString() });
+    try {
+      const tweets = await this.getTweetsFromPage(page);
+      return tweets;
     } finally {
       await page.close();
     }

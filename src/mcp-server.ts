@@ -11,7 +11,6 @@ import { z } from "zod";
 
 import Browser from "./lib/browser.js";
 import X from "./lib/x.js";
-import { profile } from "node:console";
 
 /**
  * init
@@ -26,12 +25,105 @@ const x = new X({ browser });
 
 function initServer(server: McpServer) {
   /**
+   * browser
+   */
+
+  /**
+   * prompts
+   */
+
+  server.registerPrompt(
+    "open-browser",
+    {
+      title: "Open Browser",
+      description: "Open the browser",
+      argsSchema: { url: z.string() },
+    },
+    ({ url }) => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `Please open the following URL in the browser: ${url}`,
+          },
+        },
+      ],
+    }),
+  );
+
+  /**
+   * tools
+   */
+
+  server.registerTool(
+    "close-browser",
+    {
+      title: "Close Browser",
+      description: "Close the browser",
+      inputSchema: {},
+    },
+    async () => {
+      await browser.close();
+      return {
+        content: [
+          {
+            type: "text",
+            text: "Browser closed successfully",
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerTool(
+    "get-page-html",
+    {
+      title: "Get Page HTML for URL",
+      description: "Get the HTML ",
+      inputSchema: { uri: z.string() },
+    },
+    async ({ uri }) => {
+      const page = await browser.open({ url: uri });
+      const html = await page.content();
+      return {
+        content: [
+          {
+            type: "text",
+            text: html,
+          },
+        ],
+      };
+    },
+  );
+
+  /**
    * platform: X
    */
 
   /**
    * prompts
    */
+
+  server.registerPrompt(
+    "am-i-logged-in-on-x",
+    {
+      title: "Am I logged in on X?",
+      description: "Am I logged in on X?",
+      argsSchema: {},
+    },
+    () => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `Please check if I am logged in on X`,
+          },
+        },
+      ],
+    }),
+  );
 
   server.registerPrompt(
     "search-posts-on-x",
@@ -113,6 +205,26 @@ function initServer(server: McpServer) {
     }),
   );
 
+  server.registerPrompt(
+    "list-my-tweets-on-x",
+    {
+      title: "List My Tweets",
+      description: "List my tweets on X",
+      argsSchema: {},
+    },
+    () => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `Please list my tweets on X`,
+          },
+        },
+      ],
+    }),
+  );
+
   /**
    * resources
    */
@@ -137,6 +249,26 @@ function initServer(server: McpServer) {
   /**
    * tools
    */
+
+  server.registerTool(
+    "am-i-logged-in-on-x",
+    {
+      title: "Am I logged in on X?",
+      description: "Am I logged in on X?",
+      inputSchema: {},
+    },
+    async () => {
+      const isLoggedIn = await x.isLoggedIn();
+      return {
+        content: [
+          {
+            type: "text",
+            text: `You are ${isLoggedIn ? "logged in" : "not logged in"} on X`,
+          },
+        ],
+      };
+    },
+  );
 
   server.registerTool(
     "search-posts-on-x",
@@ -230,12 +362,32 @@ function initServer(server: McpServer) {
       },
     },
     async ({ text }) => {
-      await x.postNew({ text });
+      await x.post({ text });
       return {
         content: [
           {
             type: "text",
             text: `Posted new tweet: ${text}`,
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerTool(
+    "list-my-tweets-on-x",
+    {
+      title: "List My Tweets",
+      description: "List my tweets on X",
+      inputSchema: {},
+    },
+    async () => {
+      const tweets = await x.listMyTweets();
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(tweets, null, 2),
           },
         ],
       };
