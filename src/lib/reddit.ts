@@ -2,7 +2,7 @@
  * imports
  */
 
-import { ElementHandle, Page } from "puppeteer";
+import { Page } from "puppeteer";
 
 /**
  * imports (internals)
@@ -27,10 +27,15 @@ export type PostData = {
   uri: string;
   id: string;
   title: string;
-  subReddit: {
+  author: string;
+  sub_reddit: {
     name: string;
     id: string;
   };
+};
+
+export type GetPostOptions = {
+  uri: string;
 };
 
 export type ReplyOptions = {
@@ -38,18 +43,28 @@ export type ReplyOptions = {
   text: string;
 };
 
-export type GetPostOptions = {
-  uri: string;
-  repliesLimit?: number;
+export type BasePostOptions = {
+  title: string;
+  subreddit?: string;
 };
 
-export type PostOptions = {
-  text: string;
-};
+export type PostOptions = BasePostOptions &
+  (
+    | {
+        title: string;
+        text: string;
+        type: "text";
+      }
+    | {
+        title: string;
+        url: string;
+        type: "link";
+      }
+  );
 
 export type PostDetailData = PostData & {
-  textContent: string;
-  replies: PostData[];
+  text: string;
+  replies: { uri: string; id: string; text: string; author: string }[];
 };
 
 /**
@@ -61,6 +76,8 @@ const BASE_URL = "https://reddit.com";
 const WAIT_FOR_SEND_BUTTON_MS = 1000;
 
 const WAIT_FOR_NETWORK_IDLE_MS = 2 * 1000;
+
+const DEFAULT_SEARCH_LIMIT = 20;
 
 /**
  * class
@@ -97,54 +114,6 @@ export default class Reddit {
         await page.close();
       }
     }
-  }
-
-  private async toPostData(article: ElementHandle<HTMLElement>) {
-    const postTitle = await article.$("[data-testid='post-title']");
-    if (!postTitle) {
-      throw new Error(`Post title not found`);
-    }
-    const postTitleHref = await postTitle.evaluate((el) => el.getAttribute("href"));
-    if (!postTitleHref) {
-      throw new Error(`Post title href not found`);
-    }
-    const facePlateTrackingContext = await article.$("[data-faceplate-tracking-context]");
-    if (!facePlateTrackingContext) {
-      throw new Error(`Faceplate tracking context not found`);
-    }
-    const dataFaceplateTrackingContext = await facePlateTrackingContext.evaluate((el) => el.getAttribute("data-faceplate-tracking-context"));
-    if (!dataFaceplateTrackingContext) {
-      throw new Error(`Faceplate tracking context not found`);
-    }
-    try {
-      const dataFaceplateTrackingContextJson = JSON.parse(dataFaceplateTrackingContext);
-      const id = dataFaceplateTrackingContextJson.post.id;
-      const uri = postTitleHref;
-      const title = dataFaceplateTrackingContextJson.post.title;
-      const subReddit = { name: dataFaceplateTrackingContextJson.subreddit.name, id: dataFaceplateTrackingContextJson.subreddit.id };
-      return { id, uri, title, subReddit };
-    } catch (error) {
-      throw new Error(`Faceplate tracking context not found`);
-    }
-  }
-
-  private async getPostsFromPage(page: Page, limit?: number) {
-    let stop = false;
-    let posts: PostData[] = [];
-    do {
-      const newArticlesHandles = await page.$$("div[data-testid='search-post-unit']");
-      let newResults = (await Promise.all(Array.from(newArticlesHandles).map(this.toPostData))) as PostData[];
-      newResults = newResults.filter((i) => i && !posts.find((p) => p.id === i.id));
-      posts.push(...newResults.map((i) => ({ ...i })));
-      if (!limit || !newResults.length || limit < posts.length) {
-        stop = true;
-      } else {
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-        await new Promise((f) => setTimeout(f, WAIT_FOR_NETWORK_IDLE_MS));
-      }
-    } while (!stop);
-    const result = limit ? posts.slice(0, limit) : posts;
-    return result;
   }
 
   private async postToReddit(page: Page, text: string) {
@@ -187,42 +156,92 @@ export default class Reddit {
   public async search(options: SearchOptions): Promise<PostData[]> {
     const { query, limit } = options;
     const encodedQuery = encodeURIComponent(query);
-    const url = `${BASE_URL}/search?q=${encodedQuery}`;
-    const overrideWaitNetworkIdleTimeout = WAIT_FOR_NETWORK_IDLE_MS;
-    const page = await this.browser.open({ url, overrideWaitNetworkIdleTimeout });
-    try {
-      const posts = await this.getPostsFromPage(page, limit);
-      return posts;
-    } finally {
-      await page.close();
+    const url = `${BASE_URL}/search.json?q=${encodedQuery}&t=all&limit=${limit || DEFAULT_SEARCH_LIMIT}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Search failed with status ${response.status}`);
     }
+    const data = await response.json();
+    return data.data.children.map((post: any) => ({
+      uri: post.data.permalink,
+      id: post.data.id,
+      title: post.data.title,
+      author: post.data.author,
+      sub_reddit: {
+        name: post.data.subreddit,
+        id: post.data.subreddit_id,
+      },
+    })) as PostData[];
   }
 
   public async getPost(options: GetPostOptions) {
-    const { uri, repliesLimit } = options;
-    const url = new URL(uri, BASE_URL);
-    const page = await this.browser.open({ url: url.toString() });
-    try {
-      const posts = await this.getPostsFromPage(page, repliesLimit);
-      const post = posts.find((p) => p.uri === uri);
-      if (!post) {
-        throw new Error(`post with URI ${uri} not found`);
-      }
-      return {
-        ...post,
-        replies: posts.filter((p) => p.uri !== uri),
-      };
-    } finally {
-      await page.close();
+    const { uri } = options;
+    const url = `${BASE_URL}${uri}.json`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`get post failed with status ${response.status}`);
     }
+    const data = await response.json();
+    const postData = data[0].data.children[0].data;
+    const repliesData = data[1].data.children;
+    return {
+      uri: postData.permalink,
+      id: postData.id,
+      title: postData.title,
+      author: postData.author,
+      sub_reddit: {
+        name: postData.subreddit,
+        id: postData.subreddit_id,
+      },
+      text: postData.selftext,
+      replies: repliesData.map((reply: any) => ({
+        uri: reply.data.permalink,
+        id: reply.data.id,
+        text: reply.data.body,
+        author: reply.data.author,
+      })),
+    } as PostDetailData;
   }
 
   public async post(options: PostOptions) {
-    const { text } = options;
-    const url = new URL("/home", BASE_URL);
-    const page = await this.browser.open({ url: url.toString() });
+    let url: URL;
+    const { type, title, subreddit } = options;
+    if (subreddit) {
+      url = new URL(`/r/${subreddit}/submit/?type=${type.toUpperCase()}`, BASE_URL);
+    } else {
+      const myUsername = await this.getMyUsername();
+      url = new URL(`/user/${myUsername}/submit/?type=${type.toUpperCase()}`, BASE_URL);
+    }
+    const overrideWaitNetworkIdleTimeout = WAIT_FOR_NETWORK_IDLE_MS;
+    const page = await this.browser.open({ url: url.toString(), overrideWaitNetworkIdleTimeout });
     try {
-      await this.postToReddit(page, text);
+      const faceplateTextarea = await page.$('faceplate-textarea-input[name="title"]');
+      if (!faceplateTextarea) {
+        throw new Error("title faceplate textarea not found");
+      }
+      // set title
+      await page.evaluate((faceplateTextarea: any) => {
+        faceplateTextarea.shadowRoot.querySelector('textarea[name="title"]').focus();
+      }, faceplateTextarea);
+      await page.keyboard.type(title);
+      if (type === "text") {
+        const { text } = options;
+        const shredditComposer = await page.$("shreddit-composer [contenteditable]");
+        if (!shredditComposer) {
+          throw new Error("shreddit composer not found");
+        }
+        await page.evaluate((shredditComposer: any) => {
+          shredditComposer.focus();
+          shredditComposer.click();
+        }, shredditComposer);
+        await page.keyboard.type(text);
+      }
+      const sendButton = await page.$("r-post-form-submit-button[post-action-type='submit']");
+      if (!sendButton) {
+        throw new Error("send button not found");
+      }
+      await sendButton.click();
+      await page.waitForNetworkIdle();
     } finally {
       await page.close();
     }

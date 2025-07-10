@@ -46,6 +46,7 @@ Especificaciones:
     * En la raiz del proyecto hay una carpeta "new-saas", donde debes guardar la definición del nuevo SaSS.
     * Como soporte para tu memoria, puedes usar el archivo "MEMORY.md" en la raiz del proyecto.
     * El archivo "SAAS.md" que esta en la raiz, contiene la lista de SaaS que debes promocionar, una vez analizado el SaaS, puedes guardar en el archivo MEMORY.md la informacion relevante para la promoción del SaaS. De forma que no sea necesario analizar el SaaS cada vez que se te pida una acción.
+    * En reddit solo puedes postear bajo tu mismo usuario o en los subreddits que estan definidos en SETTINGS.md
 
 Herramioentas por red social:
 

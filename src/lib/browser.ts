@@ -2,10 +2,11 @@
  * imports
  */
 
-import puppeteer, { Browser, Page } from "puppeteer";
+import puppeteer, { Browser } from "puppeteer";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { spawnSync } from "node:child_process";
 
 /**
  * imports (internals)
@@ -139,15 +140,59 @@ export default class {
     }
   }
 
+  private killMacBrowser(executablePath: string, userDataDir: string) {
+    try {
+      const ps = spawnSync("ps", ["aux"], { encoding: "utf-8" });
+      if (ps.error) throw ps.error;
+      const lines = ps.stdout.split("\n").filter((line) => line.includes(executablePath) && line.includes(userDataDir));
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        const pid = parts[1];
+        if (pid) {
+          spawnSync("kill", ["-9", pid]);
+          console.log(`Killed leftover browser process with PID ${pid}`);
+        }
+      }
+    } catch (error: any) {
+      console.warn("No leftover processes found or error killing (unix):", error.message);
+    }
+  }
+
+  private killWindowsBrowser(userDataDir: string) {
+    try {
+      const wmic = spawnSync("wmic", ["process", "where", `CommandLine like '%${userDataDir}%'`, "get", "ProcessId"], { encoding: "utf-8" });
+      if (wmic.error) throw wmic.error;
+      const lines = wmic.stdout.split("\n").filter((line) => /\d+/.test(line));
+      for (const line of lines) {
+        const pid = line.trim();
+        if (pid) {
+          spawnSync("taskkill", ["/PID", pid, "/F"]);
+          console.log(`Killed leftover browser process with PID ${pid}`);
+        }
+      }
+    } catch (error: any) {
+      console.warn("No leftover processes found or error killing (win):", error.message);
+    }
+  }
+
   private async cleanupDeadBrowser() {
     if (this.browser) {
       try {
         await this.browser.close();
+        console.log("Browser instance closed cleanly");
       } catch (error: any) {
-        console.warn("Error while closing dead browser:", error.message);
+        console.warn("Error while closing browser:", error.message);
       } finally {
         this.browser = null;
       }
+    }
+    const userDataDir = this.getUserDataDir();
+    const executablePath = this.locateBrowser();
+    if (process.platform === "darwin" || process.platform === "linux") {
+      this.killMacBrowser(executablePath, userDataDir);
+    }
+    if (process.platform === "win32") {
+      this.killWindowsBrowser(userDataDir);
     }
   }
 

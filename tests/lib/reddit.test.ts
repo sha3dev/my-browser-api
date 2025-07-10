@@ -48,12 +48,9 @@ describe("Reddit Platform", () => {
   describe("getPost", () => {
     it("should return post with replies", async () => {
       const post = await reddit.getPost({
-        uri: "/r/test/comments/abcdef/test_post",
-        repliesLimit: 10,
+        uri: "/r/WinStupidPrizes/comments/1l81nyb/acceleration_test_with_no_seatbelt/",
       });
-
       assert.strictEqual(typeof post.id, "string");
-      assert.strictEqual(typeof post.textContent, "string");
       assert(Array.isArray(post.replies));
     });
 
@@ -65,7 +62,9 @@ describe("Reddit Platform", () => {
   describe("post", () => {
     it("should post a new submission", async () => {
       await reddit.post({
+        title: "Test",
         text: "Test post from Hype Bot",
+        type: "text",
       });
       assert(true);
     });
