@@ -134,3 +134,15 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Test configuration files with sensitive data
+tests/config/test-identity.json
+
+# TODO
+TODO.txt
+
+# DS
+.DS_Store
+
+# Identities
+identities.json

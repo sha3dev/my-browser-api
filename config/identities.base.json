@@ -1,0 +1,23 @@
+[
+  {
+    "id": "robert_downey",
+    "name": "Robert Downey",
+    "communication_style": "casual",
+    "tone": "enthusiastic",
+    "bio": "Living in the cloud. Exploring SaaS, automation, and digital systems that make work (and life) smoother.",
+    "interests": ["SaaS", "productivity", "no-code", "automation", "remote work", "marketing"],
+    "avatar": "https://i.pravatar.cc/150?u=1",
+    "platforms": [
+      {
+        "platform": "reddit",
+        "username": "robert_downey",
+        "password": "123456789"
+      },
+      {
+        "platform": "x",
+        "username": "notiontoemail",
+        "password": "123456789"
+      }
+    ]
+  }
+]

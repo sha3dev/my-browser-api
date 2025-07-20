@@ -1,5 +1,11 @@
 
 
+* añadir capacidad de hacer login
+
+
+
+
+
 
 * extraer mi nombre de usuario, para saber si ya he conytestado o no
 * extraer mis ultimos tweets, para asegurarme que no posteamos algo similar
@@ -15,6 +21,4 @@
 * cada dia te manda un mail con el trabajo hecho, visitas, etc
 * usamos schduled actions
 * le decimos que cree un archivo de memoria para que pueda recordar cosas
-
-
-
+* marketplace de identidades con karma? en reddit, indie hackers, etc

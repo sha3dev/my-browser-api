@@ -1,5 +1,5 @@
 /**
- * imports
+ * imports: external
  */
 
 import puppeteer, { Browser } from "puppeteer";
@@ -9,21 +9,18 @@ import os from "node:os";
 import { spawnSync } from "node:child_process";
 
 /**
- * imports (internals)
+ * imports: internal
  */
+
+import { IdentitySchema, Identity } from "./browser/identity.schema";
 
 /**
  * types
  */
 
-export type BrowserOptions = {
-  userDataDir?: string;
-};
+export type BrowserOptions = { baseUserDataDir?: string; identities: Identity[] };
 
-export type OpenOptions = {
-  url: string;
-  overrideWaitNetworkIdleTimeout?: number;
-};
+export type OpenOptions = { url: string; overrideWaitNetworkIdleTimeout?: number; identityId: string };
 
 /**
  * consts
@@ -44,9 +41,7 @@ export default class {
 
   private browser: Browser | null = null;
 
-  private lastBrowserCheck: number = 0;
-
-  private browserCheckInterval: number = 30 * 1000;
+  private lastIdentity: Identity | null = null;
 
   /**
    * private: methods
@@ -88,12 +83,18 @@ export default class {
     ];
   }
 
-  private getUserDataDir(): string {
-    if (this.options.userDataDir) {
-      return this.options.userDataDir;
+  private getBaseUserDataDir() {
+    if (this.options.baseUserDataDir) {
+      return this.options.baseUserDataDir;
     }
     const tempDir = os.tmpdir();
-    const userDataDir = path.join(tempDir, "my-browser-api");
+    const userDataDir = path.join(tempDir, "bot-farm");
+    return userDataDir;
+  }
+
+  private getUserDataDir(identity: Identity) {
+    const baseUserDataDir = this.getBaseUserDataDir();
+    const userDataDir = path.join(baseUserDataDir, identity.id);
     if (!fs.existsSync(userDataDir)) {
       fs.mkdirSync(userDataDir, { recursive: true });
     }
@@ -124,20 +125,6 @@ export default class {
       }
     }
     return executablePath;
-  }
-
-  private async isBrowserAlive(): Promise<boolean> {
-    if (!this.browser) {
-      return false;
-    }
-    try {
-      // Try to get browser version - this will fail if browser is disconnected
-      await this.browser.version();
-      return true;
-    } catch (error: any) {
-      console.warn("Browser instance appears to be dead:", error.message);
-      return false;
-    }
   }
 
   private killMacBrowser(executablePath: string, userDataDir: string) {
@@ -175,7 +162,7 @@ export default class {
     }
   }
 
-  private async cleanupDeadBrowser() {
+  private async cleanupBrowser() {
     if (this.browser) {
       try {
         await this.browser.close();
@@ -186,7 +173,7 @@ export default class {
         this.browser = null;
       }
     }
-    const userDataDir = this.getUserDataDir();
+    const userDataDir = this.getBaseUserDataDir();
     const executablePath = this.locateBrowser();
     if (process.platform === "darwin" || process.platform === "linux") {
       this.killMacBrowser(executablePath, userDataDir);
@@ -196,19 +183,14 @@ export default class {
     }
   }
 
-  private async getBrowser() {
-    const now = Date.now();
-    if (this.browser && now - this.lastBrowserCheck > this.browserCheckInterval) {
-      this.lastBrowserCheck = now;
-      const isAlive = await this.isBrowserAlive();
-      if (!isAlive) {
-        console.log("Browser instance is dead, recreating...");
-        await this.cleanupDeadBrowser();
-      }
+  private async getBrowser(identity: Identity) {
+    if (this.browser && this.lastIdentity !== identity) {
+      await this.cleanupBrowser();
+      this.lastIdentity = null;
     }
     if (!this.browser) {
       const executablePath = this.locateBrowser();
-      const userDataDir = this.getUserDataDir();
+      const userDataDir = this.getUserDataDir(identity);
       const launchOptions: any = {
         headless: false,
         defaultViewport: DEFAULT_VIEWPORT,
@@ -228,11 +210,20 @@ export default class {
       }
       try {
         this.browser = await puppeteer.launch(launchOptions);
-        this.lastBrowserCheck = now;
         console.log("New browser instance created successfully");
-      } catch (error: any) {
-        console.error("Failed to launch browser:", error.message);
-        throw error;
+      } catch (error) {
+        console.error("Failed to launch browser:", (error as Error).message);
+        await this.cleanupBrowser();
+        try {
+          this.browser = await puppeteer.launch(launchOptions);
+          console.log("New browser instance created successfully (after error)");
+        } catch (error) {
+          console.error("Failed to launch browser:", (error as Error).message);
+          throw error;
+        }
+      }
+      if (this.browser) {
+        this.lastIdentity = identity;
       }
     }
     return this.browser;
@@ -242,15 +233,49 @@ export default class {
    * constructor
    */
 
-  constructor(private options: BrowserOptions) {}
+  constructor(private options: BrowserOptions) {
+    if (options.identities) {
+      options.identities.forEach((identity) => {
+        try {
+          IdentitySchema.parse(identity);
+        } catch (error) {
+          throw new Error(`Invalid identity: ${(error as Error).message}`);
+        }
+      });
+    }
+  }
+
+  /**
+   * properties
+   */
+
+  public get Identities() {
+    return this.options.identities;
+  }
+
+  public get LastIdentity() {
+    return this.lastIdentity;
+  }
 
   /**
    * public: methods
    */
 
+  public getIdentity(identityId: string) {
+    const identity = this.options.identities?.find((identity) => identity.id === identityId);
+    if (!identity) {
+      throw new Error(`identity ${identityId} not found`);
+    }
+    return identity;
+  }
+
   public async open(options: OpenOptions) {
-    const { url, overrideWaitNetworkIdleTimeout } = options;
-    const browser = await this.getBrowser();
+    const { url, overrideWaitNetworkIdleTimeout, identityId } = options;
+    const identity = this.options.identities?.find((identity) => identity.id === identityId);
+    if (!identity) {
+      throw new Error(`identity ${identityId} not found`);
+    }
+    const browser = await this.getBrowser(identity);
     const page = await browser.newPage();
     const response = await page.goto(url, { timeout: BROWSER_TIMEOUT });
     if (!response?.ok()) {
@@ -262,11 +287,6 @@ export default class {
       await page.waitForNetworkIdle({ timeout: BROWSER_TIMEOUT });
     }
     return page;
-  }
-
-  public async ensureBrowserAlive() {
-    this.lastBrowserCheck = 0; // Reset the check timer to force a check
-    await this.getBrowser();
   }
 
   public async close() {

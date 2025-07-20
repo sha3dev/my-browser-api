@@ -1,15 +1,20 @@
-import { describe, it, before } from "node:test";
+import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import Reddit from "../../src/lib/reddit";
 import Browser from "../../src/lib/browser";
+import { createTestBrowser, cleanupBrowser } from "./helpers/test-browser";
 
 describe("Reddit Platform", () => {
   let browser: Browser;
   let reddit: Reddit;
 
   before(async () => {
-    browser = new Browser({});
+    browser = createTestBrowser();
     reddit = new Reddit({ browser });
+  });
+
+  after(async () => {
+    await cleanupBrowser(browser);
   });
 
   describe("isLoggedIn", () => {
@@ -31,20 +36,6 @@ describe("Reddit Platform", () => {
     });
   });
 
-  describe("reply", () => {
-    it("should reply to a post", async () => {
-      await reddit.reply({
-        uri: "/r/test/comments/abcdef/test_post",
-        text: "Test from Hype Bot",
-      });
-      assert(true);
-    });
-
-    it("should handle non-existent post", async () => {
-      await assert.rejects(() => reddit.reply({ uri: "/r/test/comments/999999999/nonexistent", text: "Test" }), { name: "Error" });
-    });
-  });
-
   describe("getPost", () => {
     it("should return post with replies", async () => {
       const post = await reddit.getPost({
@@ -55,7 +46,13 @@ describe("Reddit Platform", () => {
     });
 
     it("should throw for non-existent post", async () => {
-      await assert.rejects(() => reddit.getPost({ uri: "/r/test/comments/999999999/nonexistent" }), { name: "Error" });
+      await assert.rejects(
+        () =>
+          reddit.getPost({
+            uri: "/r/test/comments/999999999/nonexistent",
+          }),
+        { name: "Error" },
+      );
     });
   });
 
@@ -65,8 +62,23 @@ describe("Reddit Platform", () => {
         title: "Test",
         text: "Test post from Hype Bot",
         type: "text",
+        subreddit: "r/Test_Posts",
       });
       assert(true);
+    });
+  });
+
+  describe("reply", () => {
+    it("should reply to a post", async () => {
+      await reddit.reply({
+        subreddit: "r/Test_Posts",
+        post_id: "1lwwilg",
+        text: "Test reply from Hype Bot",
+      });
+      assert(true);
+    });
+    it("should handle non-existent post", async () => {
+      await assert.rejects(() => reddit.reply({ subreddit: "r/Test_Posts", post_id: "999999999", text: "Test" }), { name: "Error" });
     });
   });
 
